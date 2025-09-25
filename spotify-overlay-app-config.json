@@ -1,0 +1,6 @@
+{
+	"clientId": "your_client_id_here",
+	"clientSecret": "your_client_secret_here",
+	"redirectUri": "http://127.0.0.1:8888/callback",
+	"scopes": "user-read-currently-playing user-read-playback-state user-modify-playback-state"
+}

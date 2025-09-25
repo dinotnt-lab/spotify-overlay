@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Spotify Overlay</title>
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background: rgba(0, 0, 0, 0);
+			color: white;
+			overflow: hidden;
+			user-select: none;
+		}
+
+		.container {
+			background: rgba(0, 0, 0, 0.8);
+			border-radius: 10px;
+			padding: 15px 20px;
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			min-height: 70px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			max-width: 2000px;
+			-webkit-app-region: drag;
+			cursor: move;
+			position: relative;
+		}
+
+		.song-info {
+			text-align: center;
+			width: 100%;
+			display: flex;
+			align-items: center;
+			gap: 15px;
+		}
+
+		.album-cover {
+			width: 60px;
+			height: 60px;
+			border-radius: 8px;
+			object-fit: cover;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		}
+
+		.track-details {
+			flex: 1;
+			text-align: left;
+			overflow: visible;
+		}
+
+		.text-container {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			overflow: visible;
+			position: relative;
+		}
+
+		.artist-text, .title-text {
+			overflow: visible;
+			white-space: nowrap;
+			text-overflow: clip;
+			line-height: 1.2;
+		}
+
+		.song-title {
+			font-size: 16px;
+			font-weight: 600;
+			margin: 0;
+			line-height: 1.3;
+			word-wrap: break-word;
+		}
+
+		.artist {
+			font-size: 14px;
+			color: #b3b3b3;
+			margin: 0;
+		}
+
+		.status {
+			font-size: 12px;
+			color: #666;
+			margin-top: 8px;
+			font-style: italic;
+		}
+
+		.spotify-green {
+			color: #1db954;
+		}
+
+		.auth-section {
+			display: none;
+			margin-top: 10px;
+		}
+
+		.auth-section button {
+			background: #1db954;
+			border: none;
+			border-radius: 5px;
+			color: white;
+			padding: 8px 16px;
+			font-size: 12px;
+			cursor: pointer;
+			transition: background 0.2s;
+			margin-right: 8px;
+			-webkit-app-region: no-drag;
+		}
+
+		.auth-section button:hover {
+			background: #1ed760;
+		}
+
+		.auth-section button:disabled {
+			background: #666;
+			cursor: not-allowed;
+		}
+
+		.auth-section input {
+			background: rgba(255, 255, 255, 0.1);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 5px;
+			color: white;
+			padding: 6px 10px;
+			font-size: 11px;
+			margin-right: 8px;
+			width: 200px;
+			-webkit-app-region: no-drag;
+		}
+
+		.auth-section input::placeholder {
+			color: rgba(255, 255, 255, 0.6);
+		}
+
+		.error-message {
+			color: #ff6b6b;
+			font-size: 12px;
+			margin-top: 5px;
+		}
+
+		.fade-in {
+			animation: fadeIn 0.3s ease-in;
+		}
+
+		@keyframes fadeIn {
+			from { opacity: 0; transform: translateY(-10px); }
+			to { opacity: 1; transform: translateY(0); }
+		}
+
+		/* Hide scrollbars */
+		::-webkit-scrollbar {
+			display: none;
+		}
+
+		.resize-handle {
+			position: absolute;
+			background: rgba(255, 255, 255, 0.1);
+			opacity: 0;
+			transition: opacity 0.2s ease;
+			-webkit-app-region: no-drag;
+		}
+
+		.resize-handle:hover {
+			opacity: 1;
+			background: rgba(29, 185, 84, 0.3);
+		}
+
+		.resize-handle.e {
+			top: 12px;
+			bottom: 12px;
+			right: 0;
+			width: 6px;
+			cursor: e-resize;
+		}
+
+		.resize-handle.show {
+			opacity: 0.3;
+		}
+
+		.control-buttons {
+			display: none;
+			justify-content: left;
+			gap: 12px;
+			margin-top: 10px;
+			width: 100%;
+		}
+
+		.control-buttons.show {
+			display: flex;
+		}
+
+		.control-btn {
+			background: rgba(0, 0, 0, 0.3);
+			border: none;
+			width: 40px;
+			height: 28px;
+			color: rgba(255, 255, 255, 0.9);
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 12px;
+			font-weight: bold;
+			transition: all 0.2s ease;
+			-webkit-app-region: no-drag;
+			backdrop-filter: blur(5px);
+		}
+
+		.control-btn:hover {
+			transform: scale(1.05);
+		}
+
+		.control-btn:active {
+			transform: scale(0.95);
+		}
+
+		.control-btn.play-pause {
+			background: rgba(0, 0, 0, 0.3);
+		}
+
+		.control-btn.play-pause:hover {
+			background: rgba(0, 0, 0, 0.3);
+		}
+
+		/* Progress bar styles */
+		.progress-container {
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 3px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 10px 10px 0 0;
+			overflow: hidden;
+		}
+
+		.progress-bar {
+			height: 100%;
+			background: linear-gradient(90deg, #1db954 0%, #1ed760 100%);
+			width: 0%;
+			transition: width 0.5s ease;
+			box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
+		}
+	</style>
+</head>
+<body>
+	<div class="container" id="container">
+		<!-- Progress bar -->
+		<div class="progress-container">
+			<div class="progress-bar" id="progress-bar"></div>
+		</div>
+		
+		<div class="song-info">
+			<img id="album-cover" class="album-cover" style="display: none;" alt="Album Cover">
+			<div class="track-details">
+				<div class="text-container">
+					<div id="artist-text" class="artist-text artist">Loading...</div>
+					<div id="title-text" class="title-text song-title">Loading...</div>
+				</div>
+				<div id="status" class="status">Waiting for spotify to begin playing...</div>
+				<div id="error-message" class="error-message" style="display: none;"></div>
+				<div class="auth-section">
+					<button id="login-btn" onclick="startLogin()">Login with Spotify</button>
+					<div id="oauth-status" style="display: none; font-size: 12px; color: #1db954; margin-top: 8px;">
+						Waiting for authorization...
+					</div>
+				</div>
+				
+				<!-- Control buttons -->
+				<div class="control-buttons" id="control-buttons">
+					<button class="control-btn" id="skip-previous-btn" onclick="skipPrevious()" title="Previous Track">
+						&lt;&lt;
+					</button>
+					<button class="control-btn play-pause" id="play-pause-btn" onclick="togglePlayPause()" title="Play/Pause">
+						||
+					</button>
+					<button class="control-btn" id="skip-next-btn" onclick="skipNext()" title="Next Track">
+						&gt;&gt;
+					</button>
+				</div>
+			</div>
+		</div>
+		
+		<!-- Resize handles -->
+		<div class="resize-handle e show" id="resize-e"></div>
+	</div>
+
+	<script>
+		let currentSong = null;
+		let updateInterval;
+		let progressInterval;
+		let networkErrorCount = 0;
+		let autoResizeEnabled = false;
+
+		// Debounce helper
+		function debounce(fn, wait = 120) {
+			let t;
+			return (...args) => {
+				clearTimeout(t);
+				t = setTimeout(() => fn(...args), wait);
+			};
+		}
+
+		// Escape text safely for insertion
+		function escapeHtml(str) {
+			if (!str) return '';
+			return String(str)
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+		}
+
+		// Canvas text measurement helper (caches canvas)
+		const _measureCanvas = document.createElement('canvas');
+		const _measureCtx = _measureCanvas.getContext('2d');
+		function measureTextWidth(text, font) {
+			if (!text) return 0;
+			if (font) _measureCtx.font = font;
+			return Math.ceil(_measureCtx.measureText(text).width);
+		}
+
+		// Build a usable font string from computed styles
+		function getFontStringForElement(el) {
+			const cs = window.getComputedStyle(el);
+			// prefer cs.font if available (contains weight/size/family)
+			if (cs.font && cs.font !== 'normal') return cs.font;
+			// fallback
+			const weight = cs.fontWeight || '400';
+			const size = cs.fontSize || '16px';
+			const family = cs.fontFamily || 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif';
+			return `${weight} ${size} ${family}`;
+		}
+
+		// Listen for auto-resize setting changes from main
+		window.spotify.onAutoResizeChanged((event, value) => {
+			autoResizeEnabled = !!value;
+			console.log('Auto-resize to fit title is', autoResizeEnabled);
+			// run one resize cycle when toggled on
+			if (autoResizeEnabled) {
+				setTimeout(() => resizeWindowToFitText(), 60);
+			}
+		});
+
+		// Resize the BrowserWindow to fit the text (if enabled)
+		async function resizeWindowToFitText() {
+			if (!autoResizeEnabled) return;
+			const albumCover = document.getElementById('album-cover');
+			const artistEl = document.getElementById('artist-text');
+			const titleEl = document.getElementById('title-text');
+			const container = document.getElementById('container');
+
+			if (!container || !titleEl || !artistEl) return;
+
+			// Use textContent for measuring (strip HTML)
+			const artistText = artistEl.textContent || '';
+			const titleText = titleEl.textContent || '';
+
+			// Measure using canvas with the element's computed font
+			const artistFont = getFontStringForElement(artistEl);
+			const titleFont = getFontStringForElement(titleEl);
+			const artistWidth = measureTextWidth(artistText, artistFont);
+			const titleWidth = measureTextWidth(titleText, titleFont);
+			const textWidth = Math.max(artistWidth, titleWidth);
+
+			// Album + gap
+			const albumWidth = (albumCover && albumCover.style.display !== 'none') ? albumCover.offsetWidth + 15 : 0;
+
+			// Container paddings
+			const cs = getComputedStyle(container);
+			const paddingLeft = parseFloat(cs.paddingLeft) || 0;
+			const paddingRight = parseFloat(cs.paddingRight) || 0;
+			const padding = paddingLeft + paddingRight;
+
+			// Extra margin for control buttons, rounding, etc.
+			const extra = 5;
+
+			let targetInnerWidth = Math.ceil(textWidth + albumWidth + extra);
+			let targetWidth = Math.ceil(targetInnerWidth + padding);
+
+			// clamp to screen work area
+			try {
+				const workAreaWidth = await window.spotify.getWorkAreaWidth();
+				const maxAllowed = Math.max(200, workAreaWidth - 20);
+				if (targetWidth > maxAllowed) targetWidth = maxAllowed;
+			} catch (e) {
+				// ignore; fallback to targetWidth
+			}
+
+			// Keep minimum
+			const minW = 260;
+			if (targetWidth < minW) targetWidth = minW;
+
+			// Only resize if it will change the outer width by a meaningful amount
+			const currentOuter = window.outerWidth || document.documentElement.clientWidth || minW;
+			const delta = Math.abs(currentOuter - targetWidth);
+
+			// avoid useless small changes (prevents jitter/feedback)
+			if (delta < 6) return;
+
+			// Match window height to actual container height to avoid extra empty area
+			const targetHeight = Math.ceil(container.offsetHeight);
+
+			// request main to resize window
+			const res = await window.spotify.setWindowSize(targetWidth, targetHeight);
+			if (!res || !res.success) {
+				console.warn('Failed to set window size', res);
+			}
+		}
+
+		async function updateSong() {
+			try {
+				const songData = await window.spotify.getSong();
+				
+				// Handle errors
+				if (songData && songData.error) {
+					handleSpotifyError(songData.error);
+					return;
+				}
+				
+				// Check if song changed or playback state changed
+				const songKey = songData ? `${songData.name}-${songData.artist}` : null;
+				const currentKey = currentSong ? `${currentSong.name}-${currentSong.artist}` : null;
+				const playbackStateChanged = currentSong && songData && 
+					(currentSong.isPlaying !== songData.isPlaying);
+				const progressChanged = currentSong && songData && 
+					(Math.abs((currentSong.progress || 0) - (songData.progress || 0)) > 5000); // 5 second threshold
+				
+				if (songKey !== currentKey || playbackStateChanged || progressChanged) {
+					const isNewSong = songKey !== currentKey;
+					
+					// Stop progress timer before updating to new song
+					if (isNewSong) {
+						stopProgressTimer();
+					}
+					
+					currentSong = songData;
+					displaySong(songData, isNewSong);
+					// Hide any error messages when we successfully get data
+					hideError();
+					// Reset network error counter on successful update
+					networkErrorCount = 0;
+				}
+			} catch (error) {
+				console.error('Error updating song:', error);
+				networkErrorCount++;
+				// Only show error after multiple consecutive failures
+				if (networkErrorCount >= 5) {
+					showError('Network error. Check your connection.');
+				}
+			}
+		}
+
+		function handleSpotifyError(error) {
+			switch (error) {
+				case 'NO_TOKEN':
+					showAuthSection();
+					showError('Not logged in. Please login with Spotify.');
+					break;
+				case 'TOKEN_EXPIRED':
+					showAuthSection();
+					showError('Session expired. Please login again.');
+					break;
+				case 'NETWORK_ERROR':
+					networkErrorCount++;
+					console.warn(`Network error detected (${networkErrorCount}), will retry...`);
+					// Only show error after multiple consecutive failures
+					if (networkErrorCount >= 5) {
+						showError('Network error. Check your connection.');
+					}
+					break;
+				default:
+					console.warn('Unknown error occurred:', error);
+					// Don't show unknown errors immediately
+			}
+		}
+
+		function showAuthSection() {
+			document.querySelector('.auth-section').style.display = 'block';
+		}
+
+		function hideAuthSection() {
+			document.querySelector('.auth-section').style.display = 'none';
+		}
+
+		function showError(message) {
+			document.getElementById('error-message').textContent = message;
+			document.getElementById('error-message').style.display = 'block';
+			document.getElementById('status').style.display = 'none';
+		}
+
+		function hideError() {
+			document.getElementById('error-message').style.display = 'none';
+		}
+
+		async function startLogin() {
+			try {
+				const result = await window.spotify.startOAuth();
+				if (result.success) {
+					// Show waiting status
+					document.getElementById('login-btn').style.display = 'none';
+					document.getElementById('oauth-status').style.display = 'block';
+					
+					hideError();
+					document.getElementById('status').textContent = result.message;
+					document.getElementById('status').style.display = 'block';
+					
+					// Wait for OAuth completion
+					const waitResult = await window.spotify.waitForOAuth();
+					if (waitResult.success) {
+						// OAuth completed successfully
+						hideAuthSection();
+						hideError();
+						document.getElementById('status').textContent = 'Login successful! Waiting for spotify to start playing...';
+						document.getElementById('status').style.display = 'block';
+						
+						// Start updating songs
+						updateInterval = setInterval(updateSong, 1000);
+						updateSong();
+					} else {
+						showError('Login failed. Please try again.');
+						// Reset UI
+						document.getElementById('login-btn').style.display = 'inline-block';
+						document.getElementById('oauth-status').style.display = 'none';
+					}
+				} else {
+					showError(result.error || 'Failed to start login');
+				}
+			} catch (error) {
+				console.error('Error starting login:', error);
+				showError('Failed to start login');
+				// Reset UI
+				document.getElementById('login-btn').style.display = 'inline-block';
+				document.getElementById('oauth-status').style.display = 'none';
+			}
+		}
+
+		function displaySong(songData, isNewSong = false) {
+			hideError();
+			
+			if (!songData) {
+				// No song playing
+				const artistEl = document.getElementById('artist-text');
+				const titleEl = document.getElementById('title-text');
+				if (artistEl) artistEl.innerHTML = `<span class="spotify-green">Not playing</span>`;
+				if (titleEl) titleEl.textContent = '';
+				document.getElementById('status').textContent = 'No song currently playing';
+				document.getElementById('status').style.display = 'block';
+				document.getElementById('album-cover').style.display = 'none';
+				updatePlayPauseButton(false);
+				updateProgressBar(0, 0);
+				stopProgressTimer();
+				// possible resize
+				resizeWindowToFitText();
+				return;
+			}
+
+			// Update artist/title text
+			const artistEl = document.getElementById('artist-text');
+			const titleEl = document.getElementById('title-text');
+			if (artistEl) artistEl.innerHTML = `<span class="spotify-green">${escapeHtml(songData.artist)}</span>`;
+			if (titleEl) titleEl.textContent = songData.name || '';
+
+			// Only update album cover + fade for new songs
+			if (isNewSong) {
+				// Hide status and errors
+				document.getElementById('status').style.display = 'none';
+				hideError();
+				hideAuthSection();
+
+				// Display album cover
+				const albumCover = document.getElementById('album-cover');
+				if (songData.albumCover) {
+					albumCover.src = songData.albumCover;
+					albumCover.style.display = 'block';
+				} else {
+					albumCover.style.display = 'none';
+				}
+				
+				// Add fade-in animation only for new songs (title)
+				if (titleEl) {
+					titleEl.classList.add('fade-in');
+					setTimeout(() => titleEl.classList.remove('fade-in'), 300);
+				}
+			}
+
+			// request a resize if enabled
+			resizeWindowToFitText();
+
+			// Always update play/pause button based on current state
+			updatePlayPauseButton(songData.isPlaying);
+			
+			// Always update progress bar
+			updateProgressBar(songData.progress || 0, songData.duration || 0);
+			
+			// Always manage progress timer - restart it for playing songs, stop for paused/stopped
+			if (songData.isPlaying && songData.duration && songData.duration > 0) {
+				// Only start timer if it's not already running or if it's a new song
+				if (isNewSong || !progressInterval) {
+					startProgressTimer(songData);
+				}
+			} else {
+				stopProgressTimer();
+			}
+		}
+
+		function updatePlayPauseButton(isPlaying) {
+			const playPauseBtn = document.getElementById('play-pause-btn');
+			if (playPauseBtn) {
+				playPauseBtn.textContent = isPlaying ? '||' : '▶';
+			}
+		}
+
+		function updateProgressBar(progressMs, durationMs) {
+			const progressBar = document.getElementById('progress-bar');
+			if (!progressBar) return;
+
+			if (!durationMs || durationMs === 0) {
+				progressBar.style.width = '0%';
+				return;
+			}
+
+			const progressPercent = (progressMs / durationMs) * 100;
+			progressBar.style.width = `${Math.min(100, Math.max(0, progressPercent))}%`;
+		}
+
+		function startProgressTimer(songData) {
+			stopProgressTimer(); // Clear any existing timer
+			
+			if (!songData || !songData.isPlaying || !songData.duration || songData.duration <= 0) {
+				return;
+			}
+
+			const startTime = Date.now();
+			const startProgress = songData.progress || 0;
+
+			console.log('Starting progress timer:', { startProgress, duration: songData.duration, isPlaying: songData.isPlaying });
+
+			progressInterval = setInterval(() => {
+				const elapsed = Date.now() - startTime;
+				const currentProgress = startProgress + elapsed;
+				
+				// Check if song has finished or if currentSong has changed
+				if (currentProgress >= songData.duration || !currentSong || 
+					currentSong.name !== songData.name || currentSong.artist !== songData.artist) {
+					stopProgressTimer();
+					// Reset progress bar to 0 when song ends
+					updateProgressBar(0, songData.duration);
+					return;
+				}
+				
+				// Check if song is still playing
+				if (!currentSong.isPlaying) {
+					stopProgressTimer();
+					return;
+				}
+				
+				updateProgressBar(currentProgress, songData.duration);
+			}, 1000); // Update every second
+		}
+
+		function stopProgressTimer() {
+			if (progressInterval) {
+				clearInterval(progressInterval);
+				progressInterval = null;
+			}
+		}
+
+		// Check authentication status on load
+		async function checkInitialAuth() {
+			try {
+				const authStatus = await window.spotify.checkAuth();
+				if (!authStatus.authenticated) {
+					showAuthSection();
+					showError('Please login with Spotify to continue.');
+				} else {
+					// Start updating every 1 second for more responsive state checking
+					updateInterval = setInterval(updateSong, 1000);
+					// Initial update and force display to start progress timer
+					await updateSong();
+					// Force an immediate update to ensure progress timer starts if song is playing
+					setTimeout(updateSong, 500);
+				}
+			} catch (error) {
+				console.error('Error checking auth:', error);
+				showAuthSection();
+				showError('Error checking authentication status.');
+			}
+		}
+
+		// Handle resize handles toggle
+		window.spotify.onToggleResizeHandles((event, showHandles) => {
+			const handles = document.querySelectorAll('.resize-handle');
+			const controlButtons = document.getElementById('control-buttons');
+			
+			handles.forEach(handle => {
+				if (showHandles) {
+					handle.classList.add('show');
+				} else {
+					handle.classList.remove('show');
+				}
+			});
+			
+			// Show/hide control buttons based on click-through state
+			if (showHandles) {
+				controlButtons.classList.add('show');
+			} else {
+				controlButtons.classList.remove('show');
+			}
+			// Recompute window size when UI chrome changes
+			resizeWindowToFitText();
+		});
+
+		// Control button functions
+		async function skipPrevious() {
+			try {
+				const result = await window.spotify.skipPrevious();
+				if (result.success) {
+					setTimeout(updateSong, 500);
+				} else {
+					console.error('Failed to skip to previous track:', result.error);
+				}
+			} catch (error) {
+				console.error('Error skipping to previous track:', error);
+			}
+		}
+
+		async function togglePlayPause() {
+			try {
+				const playPauseBtn = document.getElementById('play-pause-btn');
+				const isCurrentlyPlaying = currentSong && currentSong.isPlaying;
+				
+				if (isCurrentlyPlaying) {
+					playPauseBtn.textContent = '▶';
+					stopProgressTimer();
+				} else {
+					playPauseBtn.textContent = '||';
+				}
+				
+				const result = await window.spotify.togglePlayPause();
+				if (result.success) {
+					setTimeout(updateSong, 500);
+				} else {
+					console.error('Failed to toggle play/pause:', result.error);
+					playPauseBtn.textContent = isCurrentlyPlaying ? '||' : '▶';
+				}
+			} catch (error) {
+				console.error('Error toggling play/pause:', error);
+				const playPauseBtn = document.getElementById('play-pause-btn');
+				const isCurrentlyPlaying = currentSong && currentSong.isPlaying;
+				playPauseBtn.textContent = isCurrentlyPlaying ? '||' : '▶';
+			}
+		}
+
+		async function skipNext() {
+			try {
+				const result = await window.spotify.skipNext();
+				if (result.success) {
+					setTimeout(updateSong, 500);
+				} else {
+					console.error('Failed to skip to next track:', result.error);
+				}
+			} catch (error) {
+				console.error('Error skipping to next track:', error);
+			}
+		}
+
+		// Start the app
+		checkInitialAuth();
+
+		// Cleanup on page unload
+		window.addEventListener('beforeunload', () => {
+			if (updateInterval) {
+				clearInterval(updateInterval);
+			}
+			if (progressInterval) {
+				clearInterval(progressInterval);
+			}
+		});
+
+		// React to manual window resize (recalculate internal layout if user changes size)
+		window.addEventListener('resize', debounce(() => {
+			if (autoResizeEnabled) {
+				resizeWindowToFitText();
+			}
+		}, 150));
+	</script>
+</body>
+</html>
