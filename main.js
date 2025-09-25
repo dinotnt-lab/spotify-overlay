@@ -362,6 +362,7 @@ function createWindow() {
 		skipTaskbar: true,
 		resizable: false,
 		focusable: false,
+		level: 'screen-saver',
 		webPreferences: {
 			preload: path.join(__dirname, 'preload.js'),
 			nodeIntegration: false,
@@ -396,6 +397,10 @@ function createWindow() {
 	win.setAlwaysOnTop(true, 'screen-saver')
 	win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
+	win.on('blur', () => {
+		win.setAlwaysOnTop(true, 'screen-saver')
+	})
+	
 	win.loadFile('index.html')
 	
 	// Set initial state - click-through disabled (interactive mode)
